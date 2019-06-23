@@ -1,2 +1,2 @@
 # terra-cycle-test-repo
-Ez csak arra szolgal, hogy a teszthez szükséges pullrequest-eket tudjak nyitni stb.
+Módosítottam a sort1. Ez csak arra szolgal, hogy a teszthez szükséges pullrequest-eket tudjak nyitni stb.
