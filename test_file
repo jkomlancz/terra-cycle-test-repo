@@ -1,0 +1,86 @@
+[
+    {
+        "sha": "0dd170fd284eeead3fe399c21d9ecd435745115f",
+        "filename": "actionpack/CHANGELOG.md",
+        "status": "modified",
+        "additions": 6,
+        "deletions": 0,
+        "changes": 6,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/actionpack/CHANGELOG.md",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/actionpack/CHANGELOG.md",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/actionpack/CHANGELOG.md?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -1,3 +1,9 @@\n+*   Add the ability to set the CSP nonce only to the specified directives.\n+\n+    Fixes #35137.\n+\n+    *Yuji Yaginuma*\n+\n *   Keep part when scope option has value.\n \n     When a route was defined within an optional scope, if that route didn't"
+    },
+    {
+        "sha": "7dedecef34c9d4d899468d74fb1bef2996a26b0e",
+        "filename": "actionpack/lib/action_dispatch/http/content_security_policy.rb",
+        "status": "modified",
+        "additions": 20,
+        "deletions": 9,
+        "changes": 29,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/actionpack/lib/action_dispatch/http/content_security_policy.rb",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/actionpack/lib/action_dispatch/http/content_security_policy.rb",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/actionpack/lib/action_dispatch/http/content_security_policy.rb?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -22,8 +22,9 @@ def call(env)\n \n         if policy = request.content_security_policy\n           nonce = request.content_security_policy_nonce\n+          nonce_directives = request.content_security_policy_nonce_directives\n           context = request.controller_instance || request\n-          headers[header_name(request)] = policy.build(context, nonce)\n+          headers[header_name(request)] = policy.build(context, nonce, nonce_directives)\n         end\n \n         response\n@@ -54,6 +55,7 @@ module Request\n       POLICY_REPORT_ONLY = \"action_dispatch.content_security_policy_report_only\"\n       NONCE_GENERATOR = \"action_dispatch.content_security_policy_nonce_generator\"\n       NONCE = \"action_dispatch.content_security_policy_nonce\"\n+      NONCE_DIRECTIVES = \"action_dispatch.content_security_policy_nonce_directives\"\n \n       def content_security_policy\n         get_header(POLICY)\n@@ -79,6 +81,14 @@ def content_security_policy_nonce_generator=(generator)\n         set_header(NONCE_GENERATOR, generator)\n       end\n \n+      def content_security_policy_nonce_directives\n+        get_header(NONCE_DIRECTIVES)\n+      end\n+\n+      def content_security_policy_nonce_directives=(generator)\n+        set_header(NONCE_DIRECTIVES, generator)\n+      end\n+\n       def content_security_policy_nonce\n         if content_security_policy_nonce_generator\n           if nonce = get_header(NONCE)\n@@ -131,9 +141,9 @@ def generate_content_security_policy_nonce\n       worker_src:      \"worker-src\"\n     }.freeze\n \n-    NONCE_DIRECTIVES = %w[script-src style-src].freeze\n+    DEFAULT_NONCE_DIRECTIVES = %w[script-src style-src].freeze\n \n-    private_constant :MAPPINGS, :DIRECTIVES, :NONCE_DIRECTIVES\n+    private_constant :MAPPINGS, :DIRECTIVES, :DEFAULT_NONCE_DIRECTIVES\n \n     attr_reader :directives\n \n@@ -202,8 +212,9 @@ def upgrade_insecure_requests(enabled = true)\n       end\n     end\n \n-    def build(context = nil, nonce = nil)\n-      build_directives(context, nonce).compact.join(\"; \")\n+    def build(context = nil, nonce = nil, nonce_directives = nil)\n+      nonce_directives = DEFAULT_NONCE_DIRECTIVES if nonce_directives.nil?\n+      build_directives(context, nonce, nonce_directives).compact.join(\"; \")\n     end\n \n     private\n@@ -226,10 +237,10 @@ def apply_mapping(source)\n         end\n       end\n \n-      def build_directives(context, nonce)\n+      def build_directives(context, nonce, nonce_directives)\n         @directives.map do |directive, sources|\n           if sources.is_a?(Array)\n-            if nonce && nonce_directive?(directive)\n+            if nonce && nonce_directive?(directive, nonce_directives)\n               \"#{directive} #{build_directive(sources, context).join(' ')} 'nonce-#{nonce}'\"\n             else\n               \"#{directive} #{build_directive(sources, context).join(' ')}\"\n@@ -264,8 +275,8 @@ def resolve_source(source, context)\n         end\n       end\n \n-      def nonce_directive?(directive)\n-        NONCE_DIRECTIVES.include?(directive)\n+      def nonce_directive?(directive, nonce_directives)\n+        nonce_directives.include?(directive)\n       end\n   end\n end"
+    },
+    {
+        "sha": "a4634626bb6b820314a7e55e37f66fb67203d5e3",
+        "filename": "actionpack/test/dispatch/content_security_policy_test.rb",
+        "status": "modified",
+        "additions": 54,
+        "deletions": 0,
+        "changes": 54,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/actionpack/test/dispatch/content_security_policy_test.rb",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/actionpack/test/dispatch/content_security_policy_test.rb",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/actionpack/test/dispatch/content_security_policy_test.rb?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -542,3 +542,57 @@ def test_generates_content_security_policy_header_when_globally_disabled\n     assert_equal \"default-src https://example.com\", response.headers[\"Content-Security-Policy\"]\n   end\n end\n+\n+class NonceDirectiveContentSecurityPolicyIntegrationTest < ActionDispatch::IntegrationTest\n+  class PolicyController < ActionController::Base\n+    def index\n+      head :ok\n+    end\n+  end\n+\n+  ROUTES = ActionDispatch::Routing::RouteSet.new\n+  ROUTES.draw do\n+    scope module: \"nonce_directive_content_security_policy_integration_test\" do\n+      get \"/\", to: \"policy#index\"\n+    end\n+  end\n+\n+  POLICY = ActionDispatch::ContentSecurityPolicy.new do |p|\n+    p.default_src -> { :self  }\n+    p.script_src -> { :https }\n+    p.style_src -> { :https }\n+  end\n+\n+  class PolicyConfigMiddleware\n+    def initialize(app)\n+      @app = app\n+    end\n+\n+    def call(env)\n+      env[\"action_dispatch.content_security_policy\"] = POLICY\n+      env[\"action_dispatch.content_security_policy_nonce_generator\"] = proc { \"iyhD0Yc0W+c=\" }\n+      env[\"action_dispatch.content_security_policy_report_only\"] = false\n+      env[\"action_dispatch.content_security_policy_nonce_directives\"] = %w(script-src)\n+      env[\"action_dispatch.show_exceptions\"] = false\n+\n+      @app.call(env)\n+    end\n+  end\n+\n+  APP = build_app(ROUTES) do |middleware|\n+    middleware.use PolicyConfigMiddleware\n+    middleware.use ActionDispatch::ContentSecurityPolicy::Middleware\n+  end\n+\n+  def app\n+    APP\n+  end\n+\n+  def test_generate_nonce_only_specified_in_nonce_directives\n+    get \"/\"\n+\n+    assert_response :success\n+    assert_match \"script-src https: 'nonce-iyhD0Yc0W+c='\", response.headers[\"Content-Security-Policy\"]\n+    assert_no_match \"style-src https: 'nonce-iyhD0Yc0W+c='\", response.headers[\"Content-Security-Policy\"]\n+  end\n+end"
+    },
+    {
+        "sha": "225152c50b7a4de6d514f6398769c52f87eaeb82",
+        "filename": "railties/lib/rails/application.rb",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 1,
+        "changes": 3,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/railties/lib/rails/application.rb",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/railties/lib/rails/application.rb",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/railties/lib/rails/application.rb?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -270,7 +270,8 @@ def env_config\n           \"action_dispatch.use_cookies_with_metadata\" => config.action_dispatch.use_cookies_with_metadata,\n           \"action_dispatch.content_security_policy\" => config.content_security_policy,\n           \"action_dispatch.content_security_policy_report_only\" => config.content_security_policy_report_only,\n-          \"action_dispatch.content_security_policy_nonce_generator\" => config.content_security_policy_nonce_generator\n+          \"action_dispatch.content_security_policy_nonce_generator\" => config.content_security_policy_nonce_generator,\n+          \"action_dispatch.content_security_policy_nonce_directives\" => config.content_security_policy_nonce_directives\n         )\n       end\n     end"
+    },
+    {
+        "sha": "f5456f491626a5dc026e6ded1c3b178b652de858",
+        "filename": "railties/lib/rails/application/configuration.rb",
+        "status": "modified",
+        "additions": 3,
+        "deletions": 2,
+        "changes": 5,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/railties/lib/rails/application/configuration.rb",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/railties/lib/rails/application/configuration.rb",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/railties/lib/rails/application/configuration.rb?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -18,8 +18,8 @@ class Configuration < ::Rails::Engine::Configuration\n                     :session_options, :time_zone, :reload_classes_only_on_change,\n                     :beginning_of_week, :filter_redirect, :x, :enable_dependency_loading,\n                     :read_encrypted_secrets, :log_level, :content_security_policy_report_only,\n-                    :content_security_policy_nonce_generator, :require_master_key, :credentials,\n-                    :disable_sandbox, :add_autoload_paths_to_load_path\n+                    :content_security_policy_nonce_generator, :content_security_policy_nonce_directives,\n+                    :require_master_key, :credentials, :disable_sandbox, :add_autoload_paths_to_load_path\n \n       attr_reader :encoding, :api_only, :loaded_config_version, :autoloader\n \n@@ -60,6 +60,7 @@ def initialize(*)\n         @content_security_policy                 = nil\n         @content_security_policy_report_only     = false\n         @content_security_policy_nonce_generator = nil\n+        @content_security_policy_nonce_directives = nil\n         @require_master_key                      = false\n         @loaded_config_version                   = nil\n         @credentials                             = ActiveSupport::OrderedOptions.new"
+    },
+    {
+        "sha": "3d468f7633bfeeac132cbec34272aa142559bcb2",
+        "filename": "railties/lib/rails/generators/rails/app/templates/config/initializers/content_security_policy.rb.tt",
+        "status": "modified",
+        "additions": 3,
+        "deletions": 0,
+        "changes": 3,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/railties/lib/rails/generators/rails/app/templates/config/initializers/content_security_policy.rb.tt",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/railties/lib/rails/generators/rails/app/templates/config/initializers/content_security_policy.rb.tt",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/railties/lib/rails/generators/rails/app/templates/config/initializers/content_security_policy.rb.tt?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -23,6 +23,9 @@\n # If you are using UJS then enable automatic nonce generation\n # Rails.application.config.content_security_policy_nonce_generator = -> request { SecureRandom.base64(16) }\n \n+# Set the nonce only to specific directives\n+# Rails.application.config.content_security_policy_nonce_directives = %w(script-src)\n+\n # Report CSP violations to a specified URI\n # For further information see the following documentation:\n # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy-Report-Only"
+    },
+    {
+        "sha": "0bb6ee917a76eeb46be801c20556c67ac1c29813",
+        "filename": "railties/test/application/content_security_policy_test.rb",
+        "status": "modified",
+        "additions": 32,
+        "deletions": 0,
+        "changes": 32,
+        "blob_url": "https://github.com/rails/rails/blob/09d55b302266cf002a4b307f8d37a105d2838a18/railties/test/application/content_security_policy_test.rb",
+        "raw_url": "https://github.com/rails/rails/raw/09d55b302266cf002a4b307f8d37a105d2838a18/railties/test/application/content_security_policy_test.rb",
+        "contents_url": "https://api.github.com/repos/rails/rails/contents/railties/test/application/content_security_policy_test.rb?ref=09d55b302266cf002a4b307f8d37a105d2838a18",
+        "patch": "@@ -119,6 +119,38 @@ def index\n       assert_policy \"default-src 'self' https:\", report_only: true\n     end\n \n+    test \"global content security policy nonce directives in an initializer\" do\n+      controller :pages, <<-RUBY\n+        class PagesController < ApplicationController\n+          def index\n+            render html: \"<h1>Welcome to Rails!</h1>\"\n+          end\n+        end\n+      RUBY\n+\n+      app_file \"config/initializers/content_security_policy.rb\", <<-RUBY\n+        Rails.application.config.content_security_policy do |p|\n+          p.default_src :self, :https\n+          p.script_src  :self, :https\n+          p.style_src   :self, :https\n+        end\n+\n+        Rails.application.config.content_security_policy_nonce_generator = proc { \"iyhD0Yc0W+c=\" }\n+        Rails.application.config.content_security_policy_nonce_directives = %w(script-src)\n+      RUBY\n+\n+      app_file \"config/routes.rb\", <<-RUBY\n+        Rails.application.routes.draw do\n+          root to: \"pages#index\"\n+        end\n+      RUBY\n+\n+      app(\"development\")\n+\n+      get \"/\"\n+      assert_policy \"default-src 'self' https:; script-src 'self' https: 'nonce-iyhD0Yc0W+c='; style-src 'self' https:\"\n+    end\n+\n     test \"override content security policy in a controller\" do\n       controller :pages, <<-RUBY\n         class PagesController < ApplicationController"
+    }
+]
