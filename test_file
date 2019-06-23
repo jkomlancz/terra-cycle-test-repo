@@ -62,7 +62,7 @@
     {
         "sha": "3d468f7633bfeeac132cbec34272aa142559bcb2",
         "filename": "railties/lib/rails/generators/rails/app/templates/config/initializers/content_security_policy.rb.tt",
-        "status": "modified",
+        HEJHOOOOO"status": "modified",
         "additions": 3,
         "deletions": 0,
         "changes": 3,
